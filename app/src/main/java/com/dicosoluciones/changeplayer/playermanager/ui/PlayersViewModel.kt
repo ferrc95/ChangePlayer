@@ -41,6 +41,9 @@ class PlayersViewModel @Inject constructor(
     private val _playerEdit = MutableLiveData<PlayerModel>()
     val playerEdit: LiveData<PlayerModel> = _playerEdit
 
+    private val _playerList = MutableLiveData<ArrayList<PlayerModel>>()
+    val playerList: LiveData<ArrayList<PlayerModel>> = _playerList
+
     fun onDialogClose() {
         _showDialog.value = false
         _showEditPlayer.value = false
@@ -83,4 +86,14 @@ class PlayersViewModel @Inject constructor(
             deletePlayerUseCase(playerModel)
         }
     }
+
+    fun addOrDeleteListPlayers(playerModel: PlayerModel) {
+        if(_playerList.value?.contains(playerModel) == true) {
+            _playerList.value?.add(playerModel)
+        } else {
+            _playerList.value?.remove(playerModel)
+        }
+
+    }
+
 }

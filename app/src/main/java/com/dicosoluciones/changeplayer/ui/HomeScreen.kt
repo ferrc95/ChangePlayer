@@ -63,6 +63,26 @@ fun HomeScreen(
                 )
             }
         }
+
+        Card(modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                navController.navigate(route = AppScreens.MatchMakerScreen.route)
+            }) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "Partido",
+                    textAlign = TextAlign.Center,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 
 //    Scaffold(

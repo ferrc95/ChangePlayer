@@ -7,6 +7,7 @@ import androidx.navigation.compose.rememberNavController
 import com.dicosoluciones.changeplayer.playermanager.ui.screens.PlayersScreen
 import com.dicosoluciones.changeplayer.playermanager.ui.PlayersViewModel
 import com.dicosoluciones.changeplayer.playermanager.ui.model.PlayerModel
+import com.dicosoluciones.changeplayer.playermanager.ui.screens.MatchMakerScreen
 import com.dicosoluciones.changeplayer.ui.HomeScreen
 
 @Composable
@@ -20,6 +21,9 @@ fun AppNavigation(
         }
         composable(route = AppScreens.PlayerDashboard.route) {
             PlayersScreen(playersViewModel, navController)
+        }
+        composable(route = AppScreens.MatchMakerScreen.route) {
+            MatchMakerScreen(playersViewModel, navController)
         }
     }
 }
