@@ -1,5 +1,7 @@
 package com.dicosoluciones.changeplayer.playermanager.ui
 
+import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.random.Random
 
 @HiltViewModel
 class PlayersViewModel @Inject constructor(
@@ -38,15 +41,26 @@ class PlayersViewModel @Inject constructor(
     private val _showEditPlayer = MutableLiveData<Boolean>()
     val showEditPlayer: LiveData<Boolean> = _showEditPlayer
 
+    private val _showTeams = MutableLiveData<Boolean>()
+    val showTeams: LiveData<Boolean> = _showTeams
+
     private val _playerEdit = MutableLiveData<PlayerModel>()
     val playerEdit: LiveData<PlayerModel> = _playerEdit
 
-    private val _playerList = MutableLiveData<ArrayList<PlayerModel>>()
+    //Es necesario inicializar todos los array
+    private val _playerList = MutableLiveData<ArrayList<PlayerModel>>(arrayListOf())
     val playerList: LiveData<ArrayList<PlayerModel>> = _playerList
+
+    private val _teamOne = MutableLiveData<ArrayList<PlayerModel>>(arrayListOf())
+    val teamOne: LiveData<ArrayList<PlayerModel>> = _teamOne
+
+    private val _teamTwo = MutableLiveData<ArrayList<PlayerModel>>(arrayListOf())
+    val teamTwo: LiveData<ArrayList<PlayerModel>> = _teamTwo
 
     fun onDialogClose() {
         _showDialog.value = false
         _showEditPlayer.value = false
+        _showTeams.value = false
     }
 
 
@@ -88,12 +102,83 @@ class PlayersViewModel @Inject constructor(
     }
 
     fun addOrDeleteListPlayers(playerModel: PlayerModel) {
-        if(_playerList.value?.contains(playerModel) == true) {
-            _playerList.value?.add(playerModel)
-        } else {
-            _playerList.value?.remove(playerModel)
-        }
 
+        if(_playerList.value?.contains(playerModel) == true) {
+            _playerList.value?.remove(playerModel)
+
+        } else {
+            _playerList.value?.add(playerModel)
+        }
     }
 
+    fun onShowTeams() {
+        _showTeams.value = true
+    }
+    fun createTeams() {
+
+        //Limpiamos los equipos
+        _teamOne.value?.clear()
+        _teamTwo.value?.clear()
+
+        var playersBronze: ArrayList<PlayerModel> = ArrayList(arrayListOf())
+        var playersSilver: ArrayList<PlayerModel> = ArrayList(arrayListOf())
+        var playersGold: ArrayList<PlayerModel> = ArrayList(arrayListOf())
+
+        val random = Random(System.currentTimeMillis())
+
+        _playerList.value?.forEach {
+            if (it.stars == 1) {
+                playersBronze.add(it)
+            } else if (it.stars == 2) {
+                playersSilver.add(it)
+            } else if (it.stars == 3) {
+                playersGold .add(it)
+            }
+        }
+
+        var flag: Boolean = true
+        var index:Int = 0
+
+        while (playersBronze.isNotEmpty() || playersSilver.isNotEmpty() || playersGold.isNotEmpty()) {
+
+            if (flag) {
+                if(playersBronze.isNotEmpty()) {
+                    index = random.nextInt(0, playersBronze.size)
+                    _teamOne.value?.add(playersBronze[index])
+                    playersBronze.removeAt(index)
+                }
+                if(playersSilver.isNotEmpty()) {
+                    index = random.nextInt(0, playersSilver.size)
+                    _teamOne.value?.add(playersSilver[index])
+                    playersSilver.removeAt(index)
+                }
+                if(playersGold.isNotEmpty()) {
+                    index = random.nextInt(0, playersGold.size)
+                    _teamOne.value?.add(playersGold[index])
+                    playersGold.removeAt(index)
+                }
+            } else {
+                if(playersBronze.isNotEmpty()) {
+                    index = random.nextInt(0, playersBronze.size)
+                    _teamTwo.value?.add(playersBronze[index])
+                    playersBronze.removeAt(index)
+                }
+                if(playersSilver.isNotEmpty()) {
+                    index = random.nextInt(0, playersSilver.size)
+                    _teamTwo.value?.add(playersSilver[index])
+                    playersSilver.removeAt(index)
+                }
+                if(playersGold.isNotEmpty()) {
+                    index = random.nextInt(0, playersGold.size)
+                    _teamTwo.value?.add(playersGold[index])
+                    playersGold.removeAt(index)
+                }
+            }
+            flag = !flag
+        }
+
+        //Ordenamos los equipos segun su numero de estrellas
+        _teamOne.value?.sortByDescending { it.stars }
+        _teamTwo.value?.sortByDescending { it.stars }
+    }
 }
