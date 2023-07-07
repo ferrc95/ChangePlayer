@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,14 +19,19 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,9 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -53,7 +57,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
@@ -211,6 +214,18 @@ fun AddPlayerDialog(show: Boolean, onDismiss: () -> Unit, onPlayerAdd: (List<Str
     var playerStars by remember { mutableStateOf("") }
     var dataPlayer: MutableList<String> = mutableListOf()
 
+    val colorStars = listOf(
+        Color.DarkGray,
+        Color(0xFFCD7F32),
+        Color(0xFFC0C0C0),
+        Color(0xFFDAA520)
+    )
+
+    var colorState by remember {
+        mutableStateOf(0)
+    }
+
+
     if (show) {
         Dialog(onDismissRequest = { onDismiss() }) {
             Surface(
@@ -243,17 +258,36 @@ fun AddPlayerDialog(show: Boolean, onDismiss: () -> Unit, onPlayerAdd: (List<Str
                         ),
                     )
                     Spacer(modifier = Modifier.size(16.dp))
-                    TextField(
-                        value = playerStars,
-                        onValueChange = { playerStars = it },
-                        maxLines = 1,
-                        singleLine = true,
-                        textStyle = TextStyle(textAlign = TextAlign.Center),
-                        colors = TextFieldDefaults.textFieldColors(
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        for (i in 1..3) {
+                            IconButton(onClick = { colorState = i }) {
+                                Icon(
+                                    Icons.Default.Star,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentDescription = "Estrella",
+                                    tint = if (i <= colorState && colorState != 0) colorStars[colorState] else Color.DarkGray
+                                )
+                            }
+
+                        }
+
+                    }
+
+//                    TextField(
+//                        value = playerStars,
+//                        onValueChange = { playerStars = it },
+//                        maxLines = 1,
+//                        singleLine = true,
+//                        textStyle = TextStyle(textAlign = TextAlign.Center),
+//                        colors = TextFieldDefaults.textFieldColors(
+//                            focusedIndicatorColor = Color.Transparent,
+//                            unfocusedIndicatorColor = Color.Transparent
+//                        ),
+//                    )
                     Spacer(modifier = Modifier.size(16.dp))
                     Button(onClick = {
                         //Mandar tarea
@@ -485,6 +519,78 @@ fun PreviewEditPlayerDialog() {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PreviewAddPlayerDialog() {
+
+    val colorStars = listOf(
+        Color(0xFFCD7F32),
+        Color(0xFFC0C0C0),
+        Color(0xFFDAA520)
+    )
+
+    var colorState by remember {
+        mutableStateOf(0)
+    }
+
+    Dialog(onDismissRequest = { }) {
+        Surface(
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Crear jugador",
+                    color = Color.Black,
+                    fontSize = 18.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.size(16.dp))
+                TextField(
+                    value = "",
+                    onValueChange = { },
+                    maxLines = 1,
+                    singleLine = true,
+                    textStyle = TextStyle(textAlign = TextAlign.Center),
+                    colors = TextFieldDefaults.textFieldColors(
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                )
+                Spacer(modifier = Modifier.size(16.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+                    for (i in 0..2) {
+                        IconButton(onClick = { /*TODO*/ }, modifier = Modifier.padding(0.dp)) {
+                            Icon(
+                                Icons.Default.Star,
+                                modifier = Modifier.fillMaxSize(),
+                                contentDescription = "Estrella",
+                                tint = if (i >= colorState) colorStars[colorState] else Color.DarkGray
+                            )
+                        }
+                    }
+
+                }
+                Spacer(modifier = Modifier.size(16.dp))
+                Button(onClick = {
+
+                }) {
+                    Text(text = "Crear")
+                }
+            }
+        }
+    }
+}
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showSystemUi = true, showBackground = true)
@@ -494,6 +600,6 @@ fun FakePreview() {
 //        PreviewItemPlayer()
 //    }, floatingActionButton = { PreviewFabDialog() },
 //    floatingActionButtonPosition = FabPosition.Center)
-    PreviewEditPlayerDialog()
+    PreviewAddPlayerDialog()
 
 }

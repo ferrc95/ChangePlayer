@@ -1,8 +1,15 @@
 package com.dicosoluciones.changeplayer.playermanager.ui.screens
 
 import android.annotation.SuppressLint
-import android.util.Log
-import android.widget.GridView
+import android.content.ContentValues
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,15 +27,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,18 +46,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -57,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.core.content.ContextCompat.startActivity
+import androidx.core.graphics.convertTo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
@@ -64,6 +72,9 @@ import com.dicosoluciones.changeplayer.R
 import com.dicosoluciones.changeplayer.playermanager.ui.PlayersViewModel
 import com.dicosoluciones.changeplayer.playermanager.ui.model.PlayerModel
 import com.dicosoluciones.changeplayer.playermanager.ui.state.PlayersUiState
+import dev.shreyaspatil.capturable.Capturable
+import dev.shreyaspatil.capturable.controller.rememberCaptureController
+import java.io.ByteArrayOutputStream
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,11 +132,12 @@ fun MatchMakerScreen(
 @Composable
 fun ListPlayers(players: List<PlayerModel>, playersViewModel: PlayersViewModel) {
 
+    val context = LocalContext.current
+
     ConstraintLayout(modifier = Modifier.fillMaxSize()) {
         val (text, grid, button) = createRefs()
         val topGuide = createGuidelineFromTop(0.1f)
         val bottomGuide = createGuidelineFromBottom(0.1f)
-
 
         Column(
             modifier = Modifier
@@ -146,21 +158,30 @@ fun ListPlayers(players: List<PlayerModel>, playersViewModel: PlayersViewModel) 
             )
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(1),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        LazySelectPlayers(
             modifier = Modifier
                 .fillMaxHeight(0.8f)
                 .padding(horizontal = 16.dp)
                 .constrainAs(grid) {
                     top.linkTo(text.bottom)
-                }
-        ) {
-            items(players, key = { it.id }) {
-                SelectPlayers(playerModel = it, playersViewModel = playersViewModel)
-            }
-        }
+                }, listPlayers = players, playersViewModel = playersViewModel
+        )
+
+//        LazyVerticalGrid(
+//            columns = GridCells.Fixed(1),
+//            verticalArrangement = Arrangement.spacedBy(16.dp),
+//            horizontalArrangement = Arrangement.spacedBy(16.dp),
+//            modifier = Modifier
+//                .fillMaxHeight(0.8f)
+//                .padding(horizontal = 16.dp)
+//                .constrainAs(grid) {
+//                    top.linkTo(text.bottom)
+//                }
+//        ) {
+//            items(players, key = { it.id }) {
+//                SelectPlayers(playerModel = it, playersViewModel = playersViewModel)
+//            }
+//        }
 
         Column(
             modifier = Modifier
@@ -183,58 +204,80 @@ fun ListPlayers(players: List<PlayerModel>, playersViewModel: PlayersViewModel) 
         }
 
     }
-
 }
 
 @Composable
-fun SelectPlayers(
-    playerModel: PlayerModel,
+fun LazySelectPlayers(
+    modifier: Modifier,
+    listPlayers: List<PlayerModel>,
     playersViewModel: PlayersViewModel,
 ) {
-    var isSelected by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp)
-            .clickable {
-                isSelected = !isSelected
-                playersViewModel.addOrDeleteListPlayers(playerModel = playerModel)
-            },
-        colors = CardDefaults.cardColors(
+    val listState = rememberLazyGridState()
+    val cardStates = remember { mutableStateListOf<Boolean>() }
 
-            containerColor = if (isSelected) Color.DarkGray else Color.LightGray
-
-        )
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(1),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        state = listState,
+        modifier = modifier
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.player),
-                contentDescription = "playerPhoto",
-            )
+        itemsIndexed(listPlayers) { index, player ->
 
-            Column(
-                Modifier
+            var isSelected by remember { mutableStateOf(false) }
+
+            if (cardStates.size <= index) {
+                cardStates.add(isSelected)
+            } else {
+                isSelected = cardStates[index]
+            }
+
+            Card(
+                modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight()
-                    .padding(10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = playerModel.name,
-                    modifier = Modifier.padding(bottom = 5.dp),
-                    fontWeight = FontWeight.Bold
-                )
-                Row() {
-                    for (i in 1..playerModel.stars) {
-                        Icon(Icons.Default.Star, contentDescription = "Estrella")
-                    }
+                    .height(100.dp)
+                    .clickable {
+                        isSelected = !isSelected
+                        cardStates[index] = isSelected
+                        playersViewModel.addOrDeleteListPlayers(playerModel = player)
+                    },
+                colors = CardDefaults.cardColors(
 
+                    containerColor = if (isSelected) Color.DarkGray else Color.LightGray
+
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.player),
+                        contentDescription = "playerPhoto",
+                    )
+
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = player.name,
+                            modifier = Modifier.padding(bottom = 5.dp),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row {
+                            for (i in 1..player.stars) {
+                                Icon(Icons.Default.Star, contentDescription = "Estrella")
+                            }
+
+                        }
+                    }
                 }
             }
         }
@@ -250,10 +293,14 @@ fun TeamsDialog(
 ) {
     if (showTeams) {
 
+        val controller = rememberCaptureController()
+        var captureBitmap: ImageBitmap? by remember { mutableStateOf(null) }
+
         var teamSelected by remember {
             mutableStateOf(true)
         }
 
+        val context = LocalContext.current
 
         Dialog(onDismissRequest = { onDismiss() }) {
             Surface(
@@ -265,23 +312,177 @@ fun TeamsDialog(
                         .padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (teamSelected) {
-                        LazyVerticalGridTeam(nameTeam = "Equipo Azul", team = teamOne)
-                    } else {
-                        LazyVerticalGridTeam(nameTeam = "Equipo Amarillo", team = teamTwo)
+                    Capturable(controller = controller, onCaptured = { bitmap, error -> captureBitmap = bitmap }) {
+                        if (teamSelected) {
+                            LazyColumnChunked(nameTeam = "Equipo Azul", team = teamOne)
+                        } else {
+                            LazyColumnChunked(nameTeam = "Equipo Amarillo", team = teamTwo)
+                        }
                     }
 
-                    Button(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        onClick = { teamSelected = !teamSelected }
+                    Row() {
+                        Button(
+                            onClick = { teamSelected = !teamSelected }
+                        ) {
+                            Text(text = "Cambiar equipo")
+                        }
+                        Button(
+                            onClick = { controller.capture() }
+                        ) {
+                            Icon(imageVector = Icons.Rounded.FileDownload, contentDescription = "Download")
+                        }
+                    }
+
+                }
+            }
+        }
+
+        captureBitmap?.let { bitmap ->
+
+            var image = bitmap.asAndroidBitmap()
+
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, "nombre_imagen.jpg")
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+            }
+            val imageUri =
+                resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            val fos = resolver.openOutputStream(imageUri!!)
+            image.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+            fos?.flush()
+            fos?.close()
+        }
+
+    }
+}
+
+@Composable
+fun LazyColumnChunked(nameTeam: String, team: ArrayList<PlayerModel>) {
+
+    Column(
+        modifier = Modifier
+            .background(Color.White)
+            .fillMaxWidth()
+    ) {
+        Text(
+            text = nameTeam,
+            color = Color.Black,
+            fontSize = 18.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            fontWeight = FontWeight.Bold
+        )
+
+        LazyColumn(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            team.chunked(3).forEach { rowItems ->
+                item {
+                    Row(
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text(text = "Cambiar equipo")
+                        rowItems.forEach { item ->
+                            Card(
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .width(85.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.player),
+                                        contentDescription = "player"
+                                    )
+                                    Text(
+                                        text = item.name,
+                                        modifier = Modifier
+                                            .padding(2.dp)
+                                            .align(Alignment.CenterHorizontally)
+                                    )
+                                    Row() {
+                                        for (i in 1..item.stars) {
+                                            Icon(
+                                                Icons.Default.Star,
+                                                contentDescription = "Estrella"
+                                            )
+                                        }
+
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Preview(showSystemUi = true)
+@Composable
+fun FakePreviewSelect() {
+}
+
+
+@Composable
+fun CaptureCreation(
+    context: Context,
+    content: @Composable () -> Unit
+) {
+    val controller = rememberCaptureController()
+    var ticketBitmap: ImageBitmap? by remember { mutableStateOf(null) }
+
+
+    Capturable(
+        controller = controller,
+        onCaptured = { bitmap, error -> ticketBitmap = bitmap }
+    ) {
+        content()
+    }
+
+    //Capturamos el contenido
+    controller.capture()
+
+    ticketBitmap?.let { bitmap ->
+
+        var image = bitmap.asAndroidBitmap()
+
+        val resolver = context.contentResolver
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, "nombre_imagen.jpg")
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+        }
+        val imageUri =
+            resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+        val fos = resolver.openOutputStream(imageUri!!)
+        image.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+        fos?.flush()
+        fos?.close()
+    }
+}
+
+
+@Composable
+fun ShareImage(imageBitmap: Bitmap) {
+    val context = LocalContext.current
+    val share = Intent(Intent.ACTION_SEND)
+    share.type = "image/jpeg"
+    val bytes = ByteArrayOutputStream()
+    imageBitmap.compress(Bitmap.CompressFormat.JPEG, 100, bytes)
+    val path = MediaStore.Images.Media.insertImage(
+        context.contentResolver,
+        imageBitmap,
+        "Title",
+        null
+    )
+    val imageUri = Uri.parse(path)
+    share.putExtra(Intent.EXTRA_STREAM, imageUri)
+    startActivity(context, Intent.createChooser(share, "Compartir imagen"), null)
 }
 
 @Composable
@@ -290,7 +491,7 @@ fun LazyVerticalGridTeam(nameTeam: String, team: ArrayList<PlayerModel>) {
         modifier = Modifier
             .fillMaxWidth()
     ) {
-        Column() {
+        Column {
             Text(
                 text = nameTeam,
                 color = Color.Black,
@@ -322,7 +523,7 @@ fun LazyVerticalGridTeam(nameTeam: String, team: ArrayList<PlayerModel>) {
                                 modifier = Modifier
                                     .padding(bottom = 2.dp)
                             ) {
-                                for (i in 1..player.stars.toInt()) {
+                                for (i in 1..player.stars) {
                                     Icon(Icons.Default.Star, contentDescription = "Estrella")
                                 }
 
@@ -333,8 +534,6 @@ fun LazyVerticalGridTeam(nameTeam: String, team: ArrayList<PlayerModel>) {
             }
         }
     }
-
-
 }
 
 
@@ -444,8 +643,8 @@ fun ConstraintLayoutExample2() {
 fun PreviewLazyVerticalGrid(
 ) {
 
-    var players = listOf<String>("Player", "2")
-    var listPlayers = listOf<List<String>>(players, players, players, players, players)
+    var players = listOf("Player", "2")
+    var listPlayers = listOf(players, players, players, players, players)
 
     LazyVerticalGrid(
         columns = GridCells.Fixed((listPlayers.size.toDouble() / 2).roundToInt())
@@ -532,92 +731,4 @@ fun PreviewLazyColumnChunked() {
             }
         }
     }
-}
-
-@Composable
-fun PreviewTeamsDialog(
-) {
-    Dialog(onDismissRequest = { }) {
-        Surface(
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-//                PreviewLazyVerticalGrid()
-                PreviewLazyColumnChunked()
-            }
-        }
-    }
-}
-
-
-@Composable
-fun PreviewBox() {
-    var numRow = 4
-    var numCol = 3
-    var changeColor = false
-    var color = Color.Red
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        for (i in 1..numCol) {
-            Column() {
-                Box() {
-                    for (j in 1..numRow) {
-                        Row() {
-                            changeColor = !changeColor
-                            if (changeColor) {
-                                color = Color.Red
-                            } else {
-                                color = Color.Blue
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .width(50.dp)
-                                    .height(50.dp)
-
-                                    .background(color)
-                            )
-                        }
-                    }
-                }
-
-            }
-
-        }
-    }
-}
-
-@Composable
-fun FlexLayout() {
-    val items = listOf("Item 1", "Item 2", "Item 3", "Item 4", "Item 5", "Item 6")
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp)
-    ) {
-        items.chunked(2).forEach { rowItems ->
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    rowItems.forEach { item ->
-                        Text(text = item)
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-@OptIn(ExperimentalMaterial3Api::class)
-@Preview(showSystemUi = true)
-@Composable
-fun FakePreviewSelect() {
-    PreviewTeamsDialog()
 }
